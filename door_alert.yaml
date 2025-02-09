@@ -1,0 +1,93 @@
+blueprint:
+  name: Door Open Alert with Recurring Notifications
+  description: >-
+    Notify when a door is left open for more than a specified time, with optional recurring notifications.
+  domain: automation
+  input:
+    door_sensor:
+      name: Door Sensor
+      description: The binary sensor that detects the door state (e.g., open/closed).
+      selector:
+        entity:
+          filter:
+            - domain: binary_sensor
+              device_class: door
+    counter:
+      name: Alert Counter
+      description: The counter entity to track the number of alerts.
+      selector:
+        entity:
+          filter:
+            - domain: counter
+    notify_script:
+      name: Notification Script
+      description: Script to send the notification (it has to have an input called "message")
+      selector:
+        entity:
+          multiple: false
+          filter:
+            - domain: script
+      default: notify.persistent_notification
+    first_notification_delay:
+      name: First Notification Delay
+      description: The time delay before the first notification is sent.
+      default: "00:10:00"
+      selector:
+        time:
+    repeat_notification_interval:
+      name: Repeat Notification Interval
+      default: "00:00:00"
+      description: >-
+        The interval for recurring notifications. If not set or set to 0,
+        recurring notifications are disabled.
+      selector:
+        time:
+variables:
+  door_sensor: !input door_sensor
+  repeat_notification_interval: !input repeat_notification_interval
+
+triggers:
+  - trigger: state
+    entity_id: !input door_sensor
+    to: "on"
+  - trigger: homeassistant
+    event: start
+condition: []
+action:
+  - wait_for_trigger:
+      - trigger: state
+        entity_id: !input door_sensor
+        to: "off"
+    timeout: !input first_notification_delay
+    continue_on_timeout: true
+  - choose:
+      - conditions:
+          - condition: template
+            value_template: "{{ wait and not wait.completed }}"
+            alias: If wait not completed (i.e. still open)
+        sequence:
+          - action: counter.increment
+            target:
+              entity_id: !input counter
+          - if:
+              - condition: template
+                value_template: "{{ repeat_notification_interval > '00:00:00' }}"
+            then:
+              - repeat:
+                  while:
+                    - condition: state
+                      entity_id: !input door_sensor
+                      state: "on"
+                  sequence:
+                    - action: !input notify_script
+                      data:
+                        message: >-
+                          {{ state_attr(door_sensor,'friendly_name') }} está abierta desde hace {{
+                          (as_timestamp(now()) - as_timestamp(states[door_sensor].last_changed)) | timestamp_custom('%H horas, %M minutos y %S segundos', false) }}.
+                    - delay: !input repeat_notification_interval
+            else:
+              - action: !input notify_script
+                data:
+                  message: >-
+                    {{ state_attr(door_sensor,'friendly_name') }} está abierta desde hace {{
+                    (as_timestamp(now()) - as_timestamp(states[door_sensor].last_changed)) | timestamp_custom('%H horas, %M minutos y %S segundos', false) }}!
