@@ -1,0 +1,112 @@
+blueprint:
+  name: Smoke Alert with Occupancy-Based Notifications
+  description: Notify when smoke is detected with delays adjusted based on occupancy status, including optional recurring notifications.
+  domain: automation
+  input:
+    smoke_sensor:
+      name: Smoke Sensor
+      description: Binary sensor that detects smoke presence
+      selector:
+        entity:
+          filter:
+            - domain: binary_sensor
+              device_class: smoke
+          multiple: false
+    is_house_occupied_sensor:
+      name: House Occupancy Sensor
+      description: Optional sensor indicating if the house is occupied (use occupied delay when on)
+      selector:
+        entity:
+          filter:
+            - domain: binary_sensor
+              device_class: occupancy
+      default: ""
+    counter:
+      name: Alert Counter
+      description: The counter entity to track the number of alerts.
+      selector:
+        entity:
+          filter:
+            - domain: counter
+    notify_script:
+      name: Notification Script
+      description: Script to send the notification (it has to have an input called "message")
+      selector:
+        entity:
+          multiple: false
+          filter:
+            - domain: script
+      default: notify.persistent_notification
+    first_notification_delay_occupied:
+      name: Occupied Delay
+      description: Delay before first notification when occupied (default 10 min)
+      default: "00:10:00"
+      selector: { time: {} }
+    first_notification_delay_empty:
+      name: Empty Delay
+      description: Delay before first notification when empty (default 2 min)
+      default: "00:02:00"
+      selector: { time: {} }
+    repeat_notification_interval:
+      name: Repeat Interval
+      description: Interval for recurring notifications (0 to disable)
+      default: "00:00:00"
+      selector: { time: {} }
+
+variables:
+  smoke_sensor: !input smoke_sensor
+  is_occupied: !input is_house_occupied_sensor
+  delay_occupied: !input first_notification_delay_occupied
+  delay_empty: !input first_notification_delay_empty
+  repeat_interval: !input repeat_notification_interval
+
+triggers:
+  - trigger: state
+    entity_id: !input smoke_sensor
+    to: "on"
+  - trigger: homeassistant
+    event: start
+
+action:
+  - wait_for_trigger:
+      - trigger: state
+        entity_id: !input smoke_sensor
+        to: "off"
+    timeout: >
+      {% if is_occupied != '' and states(is_occupied) == 'on' %}
+        {{ delay_occupied }}
+      {% else %}
+        {{ delay_empty }}
+      {% endif %}
+    continue_on_timeout: true
+
+  - choose:
+      - conditions: "{{ wait and not wait.completed }}"
+        sequence:
+          - action: counter.increment
+            target:
+              entity_id: !input counter
+          - if:
+              - condition: template
+                value_template: "{{ repeat_interval > '00:00:00' }}"
+            then:
+              - repeat:
+                  while:
+                    - condition: state
+                      entity_id: !input smoke_sensor
+                      state: "on"
+                  sequence:
+                    - action: !input notify_script
+                      data:
+                        message: >
+                          {% set duration = (as_timestamp(now()) - as_timestamp(states[smoke_sensor].last_changed)) %}
+                          {{ state_attr(smoke_sensor, 'friendly_name') }} ha detectado humo durante
+                          {{ duration | timestamp_custom('%H hours, %M minutes', false) }}!
+                    - delay: !input repeat_notification_interval
+            else:
+              - action: !input notify_script
+                data:
+                  message: >
+                    {% set duration = (as_timestamp(now()) - as_timestamp(states[smoke_sensor].last_changed)) %}
+                    {{ state_attr(smoke_sensor, 'friendly_name') }} ha detectado humo durante
+                    {{ duration | timestamp_custom('%H horas, %M minutos y %S segundos', false) }}!
