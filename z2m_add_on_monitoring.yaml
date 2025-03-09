@@ -82,7 +82,7 @@ action:
       - condition: template
         value_template: "{{ notify_on_restart }}"
     then:
-      - service: notify.notify
+      - action: notify.notify
         target: !input notification_target
         data:
           title: "Zigbee2MQTT Restart"
