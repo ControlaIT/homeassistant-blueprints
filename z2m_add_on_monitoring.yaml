@@ -44,7 +44,6 @@ blueprint:
       selector:
         entity:
           domain: binary_sensor
-      required: false
     instance_2_addon_id:
       name: Instance 2 - Add-on ID
       description: Add-on ID for the second instance
@@ -71,7 +70,6 @@ blueprint:
       selector:
         entity:
           domain: binary_sensor
-      required: false
     instance_3_addon_id:
       name: Instance 3 - Add-on ID
       description: Add-on ID for the third instance
@@ -84,10 +82,6 @@ blueprint:
       selector:
         text:
       default: "Third Zigbee2MQTT Bridge"
-    
-    # ===== You can continue adding more instances as needed =====
-    # Just add instance_X_enabled, instance_X_binary_sensor, instance_X_addon_id, and instance_X_name
-    # following the same pattern
     
     # ===== DELAY TIME CONFIGURATION =====
     # First delay time (required)
@@ -192,133 +186,129 @@ blueprint:
 
 # ===== DYNAMIC TRIGGERS SECTION =====
 # Each trigger is dynamically enabled based on instance and delay settings
-trigger:
+triggers:
   # ===== INSTANCE 1 TRIGGERS =====
-  - platform: state
+  - id: instance_1_delay_1
+    trigger: state
     entity_id: !input instance_1_binary_sensor
     to: "off"
     for:
       minutes: !input delay_1_minutes
-    id: instance_1_delay_1
-    enabled: "{{ instance_1_enabled and delay_1_enabled }}"
+    enabled: "{{ !input.instance_1_enabled and !input.delay_1_enabled }}"
   
-  - platform: state
+  - id: instance_1_delay_2
+    trigger: state
     entity_id: !input instance_1_binary_sensor
     to: "off"
     for:
       minutes: !input delay_2_minutes
-    id: instance_1_delay_2
-    enabled: "{{ instance_1_enabled and delay_2_enabled }}"
+    enabled: "{{ !input.instance_1_enabled and !input.delay_2_enabled }}"
   
-  - platform: state
+  - id: instance_1_delay_3
+    trigger: state
     entity_id: !input instance_1_binary_sensor
     to: "off"
     for:
       minutes: !input delay_3_minutes
-    id: instance_1_delay_3
-    enabled: "{{ instance_1_enabled and delay_3_enabled }}"
+    enabled: "{{ !input.instance_1_enabled and !input.delay_3_enabled }}"
   
-  - platform: state
+  - id: instance_1_delay_4
+    trigger: state
     entity_id: !input instance_1_binary_sensor
     to: "off"
     for:
       minutes: !input delay_4_minutes
-    id: instance_1_delay_4
-    enabled: "{{ instance_1_enabled and delay_4_enabled }}"
+    enabled: "{{ !input.instance_1_enabled and !input.delay_4_enabled }}"
   
-  - platform: state
+  - id: instance_1_delay_5
+    trigger: state
     entity_id: !input instance_1_binary_sensor
     to: "off"
     for:
       minutes: !input delay_5_minutes
-    id: instance_1_delay_5
-    enabled: "{{ instance_1_enabled and delay_5_enabled }}"
+    enabled: "{{ !input.instance_1_enabled and !input.delay_5_enabled }}"
   
   # ===== INSTANCE 2 TRIGGERS =====
-  - platform: state
+  - id: instance_2_delay_1
+    trigger: state
     entity_id: !input instance_2_binary_sensor
     to: "off"
     for:
       minutes: !input delay_1_minutes
-    id: instance_2_delay_1
-    enabled: "{{ instance_2_enabled and delay_1_enabled }}"
+    enabled: "{{ !input.instance_2_enabled and !input.delay_1_enabled }}"
   
-  - platform: state
+  - id: instance_2_delay_2
+    trigger: state
     entity_id: !input instance_2_binary_sensor
     to: "off"
     for:
       minutes: !input delay_2_minutes
-    id: instance_2_delay_2
-    enabled: "{{ instance_2_enabled and delay_2_enabled }}"
+    enabled: "{{ !input.instance_2_enabled and !input.delay_2_enabled }}"
   
-  - platform: state
+  - id: instance_2_delay_3
+    trigger: state
     entity_id: !input instance_2_binary_sensor
     to: "off"
     for:
       minutes: !input delay_3_minutes
-    id: instance_2_delay_3
-    enabled: "{{ instance_2_enabled and delay_3_enabled }}"
+    enabled: "{{ !input.instance_2_enabled and !input.delay_3_enabled }}"
   
-  - platform: state
+  - id: instance_2_delay_4
+    trigger: state
     entity_id: !input instance_2_binary_sensor
     to: "off"
     for:
       minutes: !input delay_4_minutes
-    id: instance_2_delay_4
-    enabled: "{{ instance_2_enabled and delay_4_enabled }}"
+    enabled: "{{ !input.instance_2_enabled and !input.delay_4_enabled }}"
   
-  - platform: state
+  - id: instance_2_delay_5
+    trigger: state
     entity_id: !input instance_2_binary_sensor
     to: "off"
     for:
       minutes: !input delay_5_minutes
-    id: instance_2_delay_5
-    enabled: "{{ instance_2_enabled and delay_5_enabled }}"
+    enabled: "{{ !input.instance_2_enabled and !input.delay_5_enabled }}"
   
   # ===== INSTANCE 3 TRIGGERS =====
-  - platform: state
+  - id: instance_3_delay_1
+    trigger: state
     entity_id: !input instance_3_binary_sensor
     to: "off"
     for:
       minutes: !input delay_1_minutes
-    id: instance_3_delay_1
-    enabled: "{{ instance_3_enabled and delay_1_enabled }}"
+    enabled: "{{ !input.instance_3_enabled and !input.delay_1_enabled }}"
   
-  - platform: state
+  - id: instance_3_delay_2
+    trigger: state
     entity_id: !input instance_3_binary_sensor
     to: "off"
     for:
       minutes: !input delay_2_minutes
-    id: instance_3_delay_2
-    enabled: "{{ instance_3_enabled and delay_2_enabled }}"
+    enabled: "{{ !input.instance_3_enabled and !input.delay_2_enabled }}"
   
-  - platform: state
+  - id: instance_3_delay_3
+    trigger: state
     entity_id: !input instance_3_binary_sensor
     to: "off"
     for:
       minutes: !input delay_3_minutes
-    id: instance_3_delay_3
-    enabled: "{{ instance_3_enabled and delay_3_enabled }}"
+    enabled: "{{ !input.instance_3_enabled and !input.delay_3_enabled }}"
   
-  - platform: state
+  - id: instance_3_delay_4
+    trigger: state
     entity_id: !input instance_3_binary_sensor
     to: "off"
     for:
       minutes: !input delay_4_minutes
-    id: instance_3_delay_4
-    enabled: "{{ instance_3_enabled and delay_4_enabled }}"
+    enabled: "{{ !input.instance_3_enabled and !input.delay_4_enabled }}"
   
-  - platform: state
+  - id: instance_3_delay_5
+    trigger: state
     entity_id: !input instance_3_binary_sensor
     to: "off"
     for:
       minutes: !input delay_5_minutes
-    id: instance_3_delay_5
-    enabled: "{{ instance_3_enabled and delay_5_enabled }}"
-
-  # ===== ADD MORE INSTANCES AS NEEDED =====
-  # Follow the same pattern to add more instances
-  # Each instance gets 5 triggers (one for each possible delay)
+    enabled: "{{ !input.instance_3_enabled and !input.delay_5_enabled }}"
 
 # ===== ACTION SECTION =====
 action:
