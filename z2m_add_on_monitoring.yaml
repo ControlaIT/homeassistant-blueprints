@@ -44,7 +44,7 @@ blueprint:
       selector:
         entity:
           domain: binary_sensor
-          required: false
+      required: false
     instance_2_addon_id:
       name: Instance 2 - Add-on ID
       description: Add-on ID for the second instance
@@ -71,7 +71,7 @@ blueprint:
       selector:
         entity:
           domain: binary_sensor
-          required: false
+      required: false
     instance_3_addon_id:
       name: Instance 3 - Add-on ID
       description: Add-on ID for the third instance
