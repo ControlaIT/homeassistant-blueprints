@@ -1,0 +1,93 @@
+blueprint:
+  name: Zigbee2MQTT Auto-Restart
+  description: >
+    Monitors Zigbee2MQTT instances and automatically restarts them if they stop running.
+    Includes configurable delay times before attempting restart and notification options.
+  domain: automation
+  input:
+    zigbee_instances:
+      name: Zigbee2MQTT Instances
+      description: >
+        List of Zigbee2MQTT instances to monitor.
+        Each instance needs a binary sensor entity and the add-on ID.
+      selector:
+        object:
+      default:
+        instance_1:
+          binary_sensor: binary_sensor.zigbee2mqtt_running
+          addon_id: 45df7312_zigbee2mqtt
+    restart_delays:
+      name: Restart Delay Times (minutes)
+      description: >
+        Define how long to wait after detecting that an instance is down before attempting to restart.
+        You can set multiple delay times for repeated restart attempts.
+      selector:
+        object:
+      default:
+        - 3
+        - 10
+        - 15
+        - 30
+    notify_on_restart:
+      name: Send Notification on Restart
+      description: Enable to receive notifications when restarts occur
+      selector:
+        boolean:
+      default: true
+    notification_target:
+      name: Notification Target
+      description: Who/where to send notifications to (only used if notifications are enabled)
+      selector:
+        target:
+          entity:
+            domain: notify
+      default: {}
+
+trigger: !include
+  - for_each: "{{ zigbee_instances }}"
+    items_template: >
+      {% for delay in restart_delays %}
+        - platform: state
+          entity_id: "{{ zigbee_instances[item].binary_sensor }}"
+          to: 'off'
+          for:
+            minutes: {{ delay }}
+          id: "{{ item }}_down_{{ delay }}"
+      {% endfor %}
+
+variables:
+  zigbee_instances: !input zigbee_instances
+  restart_delays: !input restart_delays
+  notify_on_restart: !input notify_on_restart
+  notification_target: !input notification_target
+
+action:
+  - variables:
+      triggered_instance: >
+        {% set trigger_id = trigger.id %}
+        {% set instance_id = trigger_id.split('_down_')[0] %}
+        {{ instance_id }}
+      delay_time: >
+        {% set trigger_id = trigger.id %}
+        {% set delay = trigger_id.split('_down_')[1] %}
+        {{ delay }}
+      addon_id: "{{ zigbee_instances[triggered_instance].addon_id }}"
+      sensor_name: "{{ zigbee_instances[triggered_instance].binary_sensor }}"
+  
+  - service: hassio.addon_start
+    data:
+      addon: "{{ addon_id }}"
+  
+  - if:
+      - condition: template
+        value_template: "{{ notify_on_restart }}"
+    then:
+      - service: notify.notify
+        target: !input notification_target
+        data:
+          title: "Zigbee2MQTT Restart"
+          message: >
+            Restarted {{ triggered_instance }} after {{ delay_time }} minutes of downtime.
+            
+mode: queued
+max_exceeded: silent
