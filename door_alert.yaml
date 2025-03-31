@@ -33,7 +33,7 @@ blueprint:
       description: The time delay before the first notification is sent.
       default: "00:10:00"
       selector:
-        time:
+        duration:
     repeat_notification_interval:
       name: Repeat Notification Interval
       default: "00:00:00"
@@ -41,7 +41,7 @@ blueprint:
         The interval for recurring notifications. If not set or set to 0,
         recurring notifications are disabled.
       selector:
-        time:
+        duration:
 variables:
   door_sensor: !input door_sensor
   repeat_notification_interval: !input repeat_notification_interval
@@ -69,6 +69,14 @@ action:
           - action: counter.increment
             target:
               entity_id: !input counter
+          - action: logbook.log
+            data:
+              entity_id: !input door_sensor
+              name: "Alert: {{ state_attr(door_sensor,'friendly_name') }}"
+              message: >-
+                it has been open for {{
+                (as_timestamp(now()) - as_timestamp(states[door_sensor].last_changed)) |
+                timestamp_custom('%H hours, %M min y %S sec', false) }}!
           - if:
               - condition: template
                 value_template: "{{ repeat_notification_interval > '00:00:00' }}"

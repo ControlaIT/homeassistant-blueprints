@@ -41,17 +41,17 @@ blueprint:
       name: Occupied Delay
       description: Delay before first notification when occupied (default 10 min)
       default: "00:10:00"
-      selector: { time: {} }
+      selector: { duration: {} }
     first_notification_delay_empty:
       name: Empty Delay
       description: Delay before first notification when empty (default 2 min)
       default: "00:02:00"
-      selector: { time: {} }
+      selector: { duration: {} }
     repeat_notification_interval:
       name: Repeat Interval
       description: Interval for recurring notifications (0 to disable)
       default: "00:00:00"
-      selector: { time: {} }
+      selector: { duration: {} }
 
 variables:
   smoke_sensor: !input smoke_sensor
@@ -86,6 +86,14 @@ action:
           - action: counter.increment
             target:
               entity_id: !input counter
+          - action: logbook.log
+            data:
+              entity_id: !input smoke_sensor
+              name: "Alert: {{ state_attr(smoke_sensor,'friendly_name') }}"
+              message: >-
+                has detected smoke for {{
+                (as_timestamp(now()) - as_timestamp(states[smoke_sensor].last_changed)) |
+                timestamp_custom('%H hours, %M min y %S sec', false) }}!
           - if:
               - condition: template
                 value_template: "{{ repeat_interval > '00:00:00' }}"
