@@ -64,8 +64,6 @@ triggers:
   - trigger: state
     entity_id: !input smoke_sensor
     to: "on"
-  - trigger: homeassistant
-    event: start
 
 action:
   - wait_for_trigger:
