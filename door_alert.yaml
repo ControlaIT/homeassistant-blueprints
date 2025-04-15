@@ -50,8 +50,7 @@ triggers:
   - trigger: state
     entity_id: !input door_sensor
     to: "on"
-  - trigger: homeassistant
-    event: start
+
 condition: []
 action:
   - wait_for_trigger:
