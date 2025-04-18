@@ -1,0 +1,34 @@
+blueprint:
+  name: Is Appliance Running
+  description: Creates a binary_sensor that indicates if an appliance is running based on a power sensor and a threshold.
+  domain: template
+  input:
+    power_entity:
+      name: Power Entity
+      description: The entity holding the power value of the appliance
+      selector:
+        entity:
+          filter:
+            - domain: sensor
+              device_class: power
+    power_threshold:
+      name: Power Threshold
+      description: The threshold above which the appliance is considered running
+      default: 50
+      selector:
+        number:
+          min: 0
+          max: 10000
+          unit_of_measurement: W
+variables:
+  power_entity: !input power_entity
+  power_threshold: !input power_threshold
+binary_sensor:
+  state: >
+    {% if states(power_entity) | int(0) > power_threshold  %}
+      true
+    {% else %}
+      false
+    {% endif %}
+  availability: "{{ states(power_entity) not in ('unknown', 'unavailable') }}"
+  device_class: running

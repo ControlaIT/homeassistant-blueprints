@@ -1,0 +1,385 @@
+blueprint:
+  name: Zigbee2MQTT Auto-Restart Blueprint
+  description: >
+    Monitors Zigbee2MQTT instances and automatically restarts them if they go down.
+    Configure up to 10 instances and up to 5 delay times for maximum flexibility.
+  domain: automation
+  input:
+    # ===== INSTANCE CONFIGURATION =====
+    # Instance 1 (required)
+    instance_1_enabled:
+      name: Instance 1 Enabled
+      description: First instance is required
+      selector:
+        boolean:
+      default: true
+    instance_1_binary_sensor:
+      name: Instance 1 - Binary Sensor
+      description: Binary sensor that indicates if the first instance is running
+      selector:
+        entity:
+          domain: binary_sensor
+    instance_1_addon_id:
+      name: Instance 1 - Add-on ID
+      description: Add-on ID for the first instance
+      selector:
+        text:
+    instance_1_name:
+      name: Instance 1 - Name
+      description: Friendly name for the first instance
+      selector:
+        text:
+      default: "Main Zigbee2MQTT Bridge"
+    
+    # Instance 2 (optional)
+    instance_2_enabled:
+      name: Instance 2 Enabled
+      description: Enable second Zigbee2MQTT instance
+      selector:
+        boolean:
+      default: false
+    instance_2_binary_sensor:
+      name: Instance 2 - Binary Sensor
+      description: Binary sensor that indicates if the second instance is running
+      selector:
+        entity:
+          domain: binary_sensor
+    instance_2_addon_id:
+      name: Instance 2 - Add-on ID
+      description: Add-on ID for the second instance
+      selector:
+        text:
+      default: ""
+    instance_2_name:
+      name: Instance 2 - Name
+      description: Friendly name for the second instance
+      selector:
+        text:
+      default: "Second Zigbee2MQTT Bridge"
+    
+    # Instance 3 (optional)
+    instance_3_enabled:
+      name: Instance 3 Enabled
+      description: Enable third Zigbee2MQTT instance
+      selector:
+        boolean:
+      default: false
+    instance_3_binary_sensor:
+      name: Instance 3 - Binary Sensor
+      description: Binary sensor that indicates if the third instance is running
+      selector:
+        entity:
+          domain: binary_sensor
+    instance_3_addon_id:
+      name: Instance 3 - Add-on ID
+      description: Add-on ID for the third instance
+      selector:
+        text:
+      default: ""
+    instance_3_name:
+      name: Instance 3 - Name
+      description: Friendly name for the third instance
+      selector:
+        text:
+      default: "Third Zigbee2MQTT Bridge"
+    
+    # ===== DELAY TIME CONFIGURATION =====
+    # First delay time (required)
+    delay_1_enabled:
+      name: First Delay Enabled
+      description: First delay is required
+      selector:
+        boolean:
+      default: true
+    delay_1_minutes:
+      name: First Delay (minutes)
+      description: How long to wait before first restart attempt
+      selector:
+        number:
+          min: 1
+          max: 60
+          unit_of_measurement: minutes
+      default: 3
+    
+    # Second delay time (optional)
+    delay_2_enabled:
+      name: Second Delay Enabled
+      description: Enable second delay time
+      selector:
+        boolean:
+      default: true
+    delay_2_minutes:
+      name: Second Delay (minutes)
+      description: How long to wait before second restart attempt
+      selector:
+        number:
+          min: 1
+          max: 60
+          unit_of_measurement: minutes
+      default: 10
+    
+    # Third delay time (optional)
+    delay_3_enabled:
+      name: Third Delay Enabled
+      description: Enable third delay time
+      selector:
+        boolean:
+      default: true
+    delay_3_minutes:
+      name: Third Delay (minutes)
+      description: How long to wait before third restart attempt
+      selector:
+        number:
+          min: 1
+          max: 60
+          unit_of_measurement: minutes
+      default: 15
+    
+    # Fourth delay time (optional)
+    delay_4_enabled:
+      name: Fourth Delay Enabled
+      description: Enable fourth delay time
+      selector:
+        boolean:
+      default: true
+    delay_4_minutes:
+      name: Fourth Delay (minutes)
+      description: How long to wait before fourth restart attempt
+      selector:
+        number:
+          min: 1
+          max: 60
+          unit_of_measurement: minutes
+      default: 30
+    
+    # Fifth delay time (optional)
+    delay_5_enabled:
+      name: Fifth Delay Enabled
+      description: Enable fifth delay time
+      selector:
+        boolean:
+      default: false
+    delay_5_minutes:
+      name: Fifth Delay (minutes)
+      description: How long to wait before fifth restart attempt
+      selector:
+        number:
+          min: 1
+          max: 60
+          unit_of_measurement: minutes
+      default: 60
+    
+    # ===== NOTIFICATION SETTINGS =====
+    notify_on_restart:
+      name: Send Notification on Restart
+      description: Enable to receive notifications when restarts occur
+      selector:
+        boolean:
+      default: true
+    
+    notification_service:
+      name: Notification Service
+      description: Service to use for notifications (only used if notifications are enabled)
+      selector:
+        text:
+      default: notify.notify
+
+# ===== DYNAMIC TRIGGERS SECTION =====
+# Each trigger is dynamically enabled based on instance and delay settings
+triggers:
+  # ===== INSTANCE 1 TRIGGERS =====
+  - id: instance_1_delay_1
+    trigger: state
+    entity_id: !input instance_1_binary_sensor
+    to: "off"
+    for:
+      minutes: !input delay_1_minutes
+    enabled: "{{ !input.instance_1_enabled and !input.delay_1_enabled }}"
+  
+  - id: instance_1_delay_2
+    trigger: state
+    entity_id: !input instance_1_binary_sensor
+    to: "off"
+    for:
+      minutes: !input delay_2_minutes
+    enabled: "{{ !input.instance_1_enabled and !input.delay_2_enabled }}"
+  
+  - id: instance_1_delay_3
+    trigger: state
+    entity_id: !input instance_1_binary_sensor
+    to: "off"
+    for:
+      minutes: !input delay_3_minutes
+    enabled: "{{ !input.instance_1_enabled and !input.delay_3_enabled }}"
+  
+  - id: instance_1_delay_4
+    trigger: state
+    entity_id: !input instance_1_binary_sensor
+    to: "off"
+    for:
+      minutes: !input delay_4_minutes
+    enabled: "{{ !input.instance_1_enabled and !input.delay_4_enabled }}"
+  
+  - id: instance_1_delay_5
+    trigger: state
+    entity_id: !input instance_1_binary_sensor
+    to: "off"
+    for:
+      minutes: !input delay_5_minutes
+    enabled: "{{ !input.instance_1_enabled and !input.delay_5_enabled }}"
+  
+  # ===== INSTANCE 2 TRIGGERS =====
+  - id: instance_2_delay_1
+    trigger: state
+    entity_id: !input instance_2_binary_sensor
+    to: "off"
+    for:
+      minutes: !input delay_1_minutes
+    enabled: "{{ !input.instance_2_enabled and !input.delay_1_enabled }}"
+  
+  - id: instance_2_delay_2
+    trigger: state
+    entity_id: !input instance_2_binary_sensor
+    to: "off"
+    for:
+      minutes: !input delay_2_minutes
+    enabled: "{{ !input.instance_2_enabled and !input.delay_2_enabled }}"
+  
+  - id: instance_2_delay_3
+    trigger: state
+    entity_id: !input instance_2_binary_sensor
+    to: "off"
+    for:
+      minutes: !input delay_3_minutes
+    enabled: "{{ !input.instance_2_enabled and !input.delay_3_enabled }}"
+  
+  - id: instance_2_delay_4
+    trigger: state
+    entity_id: !input instance_2_binary_sensor
+    to: "off"
+    for:
+      minutes: !input delay_4_minutes
+    enabled: "{{ !input.instance_2_enabled and !input.delay_4_enabled }}"
+  
+  - id: instance_2_delay_5
+    trigger: state
+    entity_id: !input instance_2_binary_sensor
+    to: "off"
+    for:
+      minutes: !input delay_5_minutes
+    enabled: "{{ !input.instance_2_enabled and !input.delay_5_enabled }}"
+  
+  # ===== INSTANCE 3 TRIGGERS =====
+  - id: instance_3_delay_1
+    trigger: state
+    entity_id: !input instance_3_binary_sensor
+    to: "off"
+    for:
+      minutes: !input delay_1_minutes
+    enabled: "{{ !input.instance_3_enabled and !input.delay_1_enabled }}"
+  
+  - id: instance_3_delay_2
+    trigger: state
+    entity_id: !input instance_3_binary_sensor
+    to: "off"
+    for:
+      minutes: !input delay_2_minutes
+    enabled: "{{ !input.instance_3_enabled and !input.delay_2_enabled }}"
+  
+  - id: instance_3_delay_3
+    trigger: state
+    entity_id: !input instance_3_binary_sensor
+    to: "off"
+    for:
+      minutes: !input delay_3_minutes
+    enabled: "{{ !input.instance_3_enabled and !input.delay_3_enabled }}"
+  
+  - id: instance_3_delay_4
+    trigger: state
+    entity_id: !input instance_3_binary_sensor
+    to: "off"
+    for:
+      minutes: !input delay_4_minutes
+    enabled: "{{ !input.instance_3_enabled and !input.delay_4_enabled }}"
+  
+  - id: instance_3_delay_5
+    trigger: state
+    entity_id: !input instance_3_binary_sensor
+    to: "off"
+    for:
+      minutes: !input delay_5_minutes
+    enabled: "{{ !input.instance_3_enabled and !input.delay_5_enabled }}"
+
+# ===== ACTION SECTION =====
+action:
+  - variables:
+      # Extract instance and delay information from trigger ID
+      trigger_parts: "{{ trigger.id.split('_') }}"
+      instance_id: "{{ trigger_parts[0] ~ '_' ~ trigger_parts[1] }}"
+      delay_id: "{{ trigger_parts[2] ~ '_' ~ trigger_parts[3] }}"
+  
+  - variables:
+      # Get the appropriate binary sensor, add-on ID, and name based on which instance triggered
+      binary_sensor: >
+        {% if instance_id == 'instance_1' %}
+          {{ instance_1_binary_sensor }}
+        {% elif instance_id == 'instance_2' %}
+          {{ instance_2_binary_sensor }}
+        {% elif instance_id == 'instance_3' %}
+          {{ instance_3_binary_sensor }}
+        {% else %}
+          unknown
+        {% endif %}
+      addon_id: >
+        {% if instance_id == 'instance_1' %}
+          {{ instance_1_addon_id }}
+        {% elif instance_id == 'instance_2' %}
+          {{ instance_2_addon_id }}
+        {% elif instance_id == 'instance_3' %}
+          {{ instance_3_addon_id }}
+        {% else %}
+          unknown
+        {% endif %}
+      instance_name: >
+        {% if instance_id == 'instance_1' %}
+          {{ instance_1_name }}
+        {% elif instance_id == 'instance_2' %}
+          {{ instance_2_name }}
+        {% elif instance_id == 'instance_3' %}
+          {{ instance_3_name }}
+        {% else %}
+          Unknown Instance
+        {% endif %}
+      delay_minutes: >
+        {% if delay_id == 'delay_1' %}
+          {{ delay_1_minutes }}
+        {% elif delay_id == 'delay_2' %}
+          {{ delay_2_minutes }}
+        {% elif delay_id == 'delay_3' %}
+          {{ delay_3_minutes }}
+        {% elif delay_id == 'delay_4' %}
+          {{ delay_4_minutes }}
+        {% elif delay_id == 'delay_5' %}
+          {{ delay_5_minutes }}
+        {% else %}
+          0
+        {% endif %}
+  
+  # Restart the add-on
+  - action: hassio.addon_start
+    data:
+      addon: "{{ addon_id }}"
+  
+  # Send notification if enabled
+  - if:
+      - condition: template
+        value_template: "{{ notify_on_restart }}"
+    then:
+      - action: "{{ notification_service }}"
+        data:
+          title: "Zigbee2MQTT Restart"
+          message: >
+            Restarted {{ instance_name }} after {{ delay_minutes }} minutes of downtime.
+            
+mode: queued
+max_exceeded: silent
