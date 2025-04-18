@@ -1,12 +1,9 @@
 blueprint:
   name: Turn off A/C when empty
   description: >-
-    Automatically turns off the water heater, lights, and A/C in Liceu 1-1 if the
-    apartment is empty for 45 minutes and logs the events in a Google Sheet. Turns
-    on the water heater when the apartment is occupied again for 5 minutes and 30
-    seconds.
+    Automatically turns off the A/C when the apartment is empty for a specified
+    duration and logs the events in a Google Sheet. 
   domain: automation
-
   input:
     apartment_id:
       name: Apartment ID

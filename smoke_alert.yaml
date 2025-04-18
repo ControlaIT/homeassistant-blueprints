@@ -94,7 +94,7 @@ action:
                 timestamp_custom('%H hours, %M min y %S sec', false) }}!
           - if:
               - condition: template
-                value_template: "{{ repeat_interval > '00:00:00' }}"
+                value_template: "{{ '{hours:02}:{minutes:02}:{seconds:02}'.format(**repeat_interval)  > '00:00:00' }}"
             then:
               - repeat:
                   while:
