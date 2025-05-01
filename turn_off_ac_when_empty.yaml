@@ -1,11 +1,14 @@
 blueprint:
-  name: Turn off A/C when empty (optional v4)
+  name: Turn off A/C when empty (optional v5)
   description: |
     Turns off the A/C when the apartment has been empty for a configurable
-    period. Power‑, on/off‑sensor, failure counter, Google Sheet logging and
-    automation‑running flag are **optional**; if you leave them blank their
-    features are skipped. Uses *trigger IDs* and `condition: trigger` exactly as
-    described in the docs ➜ https://www.home-assistant.io/docs/automation/trigger/#trigger-variables
+    period. Power-, on/off-sensor, failure counter, Google Sheet logging and
+    automation-running flag are **optional**; if you leave them blank their
+    features are skipped.
+
+    **v5** — La acción que apaga el aire se ejecuta SIEMPRE primero; el resto
+    (registro, contadores, flag, reintento) solo se dispara si el sensor indica
+    que el aire estaba encendido.
   domain: automation
 
   input:
@@ -33,7 +36,7 @@ blueprint:
       default: "00:45:00"
 
     not_empty_duration:
-      name: Not‑empty Duration
+      name: Not-empty Duration
       selector:
         duration:
       default: "00:05:30"
@@ -50,7 +53,7 @@ blueprint:
 
     ac_sensor_on_off:
       name: A/C Sensor (optional)
-      description: Binary sensor with *device_class* **running** **o** **power**.
+      description: Binary sensor with *device_class* **running** or **power**.
       selector:
         entity:
           filter:
@@ -101,7 +104,7 @@ blueprint:
       default: ""
 
     turn_off_ac_action:
-      name: Turn‑off A/C action
+      name: Turn-off A/C action
       selector:
         action:
 
@@ -137,17 +140,20 @@ action:
           - condition: trigger
             id: empty
         sequence:
-          # Comprobamos si el A/C está corriendo o no tenemos sensor
+          # 1️⃣ Apagar el aire SIEMPRE
+          - sequence: !input turn_off_ac_action
+
+          # 2️⃣ Evaluar si el sensor dice que estaba encendido
           - variables:
               ac_running: >-
                 {{ (ac_sensor_on_off_id != '') and is_state(ac_sensor_on_off_id,'on') }}
+
           - choose:
               - conditions:
                   - condition: template
-                    value_template: >-
-                      {{ ac_running or ac_sensor_on_off_id == '' }}
+                    value_template: "{{ ac_running }}"
                 sequence:
-                  # ---- Log en Google Sheet ----
+                  # --- Log en Google Sheet ---
                   - choose:
                       - conditions:
                           - condition: template
@@ -163,12 +169,12 @@ action:
                                   {{ (states(ac_power_sensor_id)|float(0)) if ac_power_sensor_id != '' else 0 }}
                                 apartment: !input apartment_id
 
-                  # ---- Éxito ----
+                  # --- Éxito ---
                   - service: counter.increment
                     data:
                       entity_id: !input ac_success_counter
 
-                  # ---- Flag opcional ----
+                  # --- Flag opcional ---
                   - choose:
                       - conditions:
                           - condition: template
@@ -178,28 +184,25 @@ action:
                             data:
                               entity_id: "{{ is_automation_running_id }}"
 
-                  # ---- Apagar el A/C ----
-                  - sequence: !input turn_off_ac_action
-
-                  # ---- Reintento si tenemos el sensor on/off ----
+          # 3️⃣ Reintento si tenemos sensor on/off
+          - choose:
+              - conditions:
+                  - condition: template
+                    value_template: "{{ ac_sensor_on_off_id != '' }}"
+                sequence:
+                  - delay: !input turn_off_retry_delay
+                  - condition: state
+                    entity_id: !input ac_sensor_on_off
+                    state: "on"
                   - choose:
                       - conditions:
                           - condition: template
-                            value_template: "{{ ac_sensor_on_off_id != '' }}"
+                            value_template: "{{ ac_failure_counter_id != '' }}"
                         sequence:
-                          - delay: !input turn_off_retry_delay
-                          - condition: state
-                            entity_id: !input ac_sensor_on_off
-                            state: "on"
-                          - choose:
-                              - conditions:
-                                  - condition: template
-                                    value_template: "{{ ac_failure_counter_id != '' }}"
-                                sequence:
-                                  - service: counter.increment
-                                    data:
-                                      entity_id: "{{ ac_failure_counter_id }}"
-                          - sequence: !input turn_off_ac_action
+                          - service: counter.increment
+                            data:
+                              entity_id: "{{ ac_failure_counter_id }}"
+                  - sequence: !input turn_off_ac_action
 
       # ------------------------  NOT EMPTY  -------------------- #
       - conditions:
