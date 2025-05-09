@@ -1,0 +1,74 @@
+blueprint:
+  name: AC limit temperature
+  description: "Triggers actions when temperature crosses thresholds with optional AC control counting"
+  domain: automation
+  input:
+    temperature_sensor:
+      name: Temperature Sensor
+      description: "The sensor to monitor for temperature changes"
+      selector:
+        entity:
+          domain: sensor
+          device_class: temperature
+    below_threshold:
+      name: Below Threshold
+      description: "Temperature below which to trigger (optional)"
+      default: 100
+      selector:
+        number:
+          min: 16
+          max: 32
+          step: 0.5
+          unit_of_measurement: °C
+    above_threshold:
+      name: Above Threshold
+      description: "Temperature above which to trigger (optional)"
+      default: 0
+      selector:
+        number:
+          min: 16
+          max: 32
+          step: 0.5
+          unit_of_measurement: °C
+    ac_limited_counter:
+      name: AC Limited Counter
+      description: "Counter to increment when AC is on during trigger (optional)"
+      default: ""
+      selector:
+        entity:
+          domain: counter
+    actions:
+      name: Actions to perform
+      description: "Actions to execute when threshold is crossed"
+      selector:
+        action:
+
+variables:
+  below_th: !input below_threshold
+  above_th: !input above_threshold
+  counter: !input ac_limited_counter
+
+trigger:
+  - platform: numeric_state
+    entity_id: !input temperature_sensor
+    below: !input below_threshold
+    above: !input above_threshold
+
+condition: []
+
+action:
+  - if:
+      - condition: state
+        entity_id: binary_sensor.ac_sensor_on_off
+        state: 'on'
+    then:
+      - if:         
+        - condition: template
+          value_template: "{{ counter != '' }}"
+        then:
+          - action: counter.increment
+            target:
+              entity_id: "{{ counter }}"
+  - sequence: !input actions
+
+mode: single
