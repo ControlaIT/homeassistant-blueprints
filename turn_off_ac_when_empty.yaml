@@ -1,21 +1,25 @@
 blueprint:
-  name: Turn off A/C when empty
-  description: >-
-    Automatically turns off the A/C when the apartment is empty for a specified
-    duration and logs the events in a Google Sheet. 
+  name: Turn off A/C when empty (optional v5)
+  description: |
+    Turns off the A/C when the apartment has been empty for a configurable
+    period. Power-, on/off-sensor, failure counter, Google Sheet logging and
+    automation-running flag are **optional**; if you leave them blank their
+    features are skipped.
+
+    **v5** — La acción que apaga el aire se ejecuta SIEMPRE primero; el resto
+    (registro, contadores, flag, reintento) solo se dispara si el sensor indica
+    que el aire estaba encendido.
   domain: automation
+
   input:
     apartment_id:
       name: Apartment ID
-      description: >-
-        Unique identifier for the apartment (e.g., 1-1).
       selector:
         text:
       default: "1-1"
+
     presence_sensor:
       name: Presence Sensor
-      description: >-
-        Binary sensor that detects presence in the apartment (e.g., motion sensor).
       selector:
         entity:
           filter:
@@ -24,178 +28,206 @@ blueprint:
             - domain: binary_sensor
               device_class: presence
           multiple: false
+
     empty_duration:
       name: Empty Duration
-      description: >-
-        Duration for which the apartment should be empty before actions are taken.
+      selector:
+        duration:
       default: "00:45:00"
-      selector:
-        duration: {}
+
     not_empty_duration:
-      name: Not Empty Duration
-      description: >-
-        Duration for which the apartment should be occupied before actions are taken.
-      default: "00:05:30"
+      name: Not-empty Duration
       selector:
-        duration: {}
+        duration:
+      default: "00:05:30"
+
     ac_power_sensor:
-      name: A/C Power Sensor
-      description: >-
-        Sensor that measures the power consumption of the A/C (e.g., power sensor).
+      name: A/C Power Sensor (optional)
       selector:
         entity:
           filter:
             - domain: sensor
               device_class: power
           multiple: false
+      default: ""
+
     ac_sensor_on_off:
-      name: A/C Sensor
-      description: >-
-        Sensor that detects the state of the A/C (e.g., on/off).
+      name: A/C Sensor (optional)
+      description: Binary sensor with *device_class* **running** or **power**.
       selector:
         entity:
           filter:
             - domain: binary_sensor
               device_class: running
+            - domain: binary_sensor
+              device_class: power
           multiple: false
+      default: ""
+
     ac_success_counter:
       name: A/C Success Counter
-      description: >-
-        Counter to track the number of successful A/C turn-offs.
       selector:
         entity:
           filter:
             - domain: counter
           multiple: false
+
     ac_failure_counter:
-      name: A/C Failure Counter
-      description: >-
-        Counter to track the number of failed A/C turn-offs.
+      name: A/C Failure Counter (optional)
       selector:
         entity:
           filter:
             - domain: counter
           multiple: false
+      default: ""
+
     google_sheet:
-      name: Google Sheet
-      description: >-
-        Google Sheet to log the events (e.g., A/C turn-off events).
+      name: Google Sheet (optional)
       selector:
         config_entry:
           integration: google_sheets
+      default: ""
+
     google_sheet_name:
-      name: Google Sheet Name
-      description: >-
-        Name of the Google Sheet to log the events (e.g., A/C turn-off events).
+      name: Worksheet name
       selector:
         text:
       default: "log"
+
     is_automation_running:
-      name: Is Automation Running
-      description: >-
-        Input boolean to check if the automation is running.
+      name: Is Automation Running (optional)
       selector:
         entity:
           filter:
             - domain: input_boolean
           multiple: false
+      default: ""
+
     turn_off_ac_action:
-      name: Turn Off A/C Action
-      description: >-
-        Action to turn off the A/C (e.g., script or service).
+      name: Turn-off A/C action
       selector:
         action:
+
     turn_off_retry_delay:
-      name: Turn Off Retry Delay
-      description: >-
-        Delay before retrying to turn off the A/C if it fails.
-      default: "00:05:00"
+      name: Retry delay
       selector:
-        duration: {}
-    
+        duration:
+      default: "00:05:00"
 
 variables:
-  ac_power_sensor: !input ac_power_sensor
+  ac_power_sensor_id: !input ac_power_sensor
+  ac_sensor_on_off_id: !input ac_sensor_on_off
+  ac_failure_counter_id: !input ac_failure_counter
+  google_sheet_id: !input google_sheet
+  is_automation_running_id: !input is_automation_running
 
-triggers:
-  - entity_id: !input presence_sensor
-    from: null
+trigger:
+  - platform: state
+    id: empty
+    entity_id: !input presence_sensor
     to: "off"
     for: !input empty_duration
-    alias: Empty
-    id: empty
-    trigger: state
-  - alias: Not empty
+  - platform: state
+    id: not_empty
     entity_id: !input presence_sensor
-    from: null
     to: "on"
     for: !input not_empty_duration
-    id: not empty
-    trigger: state
-conditions: []
-actions:
-  - alias: Turn off A/C
-    if:
-      - condition: and
-        conditions:
+
+action:
+  - choose:
+      # ------------------------  EMPTY  ------------------------ #
+      - conditions:
           - condition: trigger
-            id:
-              - empty
-          - condition: state
-            entity_id: !input ac_sensor_on_off
-            state: "on"
-    then:
-      - data:
-          config_entry: !input google_sheet
-          worksheet: !input google_sheet_name
-          data:
-            type: "OFF"
-            consumption: "{{ states(ac_power_sensor) | float(0)}}"
-            apartment: !input apartment_id
-        action: google_sheets.append_sheet
-      - metadata: {}
-        data: {}
-        target:
-          entity_id: !input ac_success_counter
-        action: counter.increment
-      - metadata: {}
-        data: {}
-        target:
-          entity_id: !input is_automation_running
-        action: homeassistant.turn_on
-      - sequence: !input turn_off_ac_action
-      - delay: !input turn_off_retry_delay
-      - if:
-          - condition: state
-            entity_id: !input ac_sensor_on_off
-            state: "on"
-        then:
-          - metadata: {}
-            data: {}
-            target:
-              entity_id: !input ac_failure_counter
-            action: counter.increment
+            id: empty
+        sequence:
+          # 1️⃣ Apagar el aire SIEMPRE
           - sequence: !input turn_off_ac_action
-  - alias: Not empty
-    if:
-      - condition: and
-        conditions:
-          - condition: state
-            entity_id: !input is_automation_running
-            state: "on"
+
+          # 2️⃣ Evaluar si el sensor dice que estaba encendido
+          - variables:
+              ac_running: >-
+                {{ (ac_sensor_on_off_id != '') and is_state(ac_sensor_on_off_id,'on') }}
+
+          - choose:
+              - conditions:
+                  - condition: template
+                    value_template: "{{ ac_running }}"
+                sequence:
+                  # --- Log en Google Sheet ---
+                  - choose:
+                      - conditions:
+                          - condition: template
+                            value_template: "{{ google_sheet_id != '' }}"
+                        sequence:
+                          - service: google_sheets.append_sheet
+                            data:
+                              config_entry: !input google_sheet
+                              worksheet: !input google_sheet_name
+                              data:
+                                type: "OFF"
+                                consumption: >-
+                                  {{ (states(ac_power_sensor_id)|float(0)) if ac_power_sensor_id != '' else 0 }}
+                                apartment: !input apartment_id
+
+                  # --- Éxito ---
+                  - service: counter.increment
+                    data:
+                      entity_id: !input ac_success_counter
+
+                  # --- Flag opcional ---
+                  - choose:
+                      - conditions:
+                          - condition: template
+                            value_template: "{{ is_automation_running_id != '' }}"
+                        sequence:
+                          - service: homeassistant.turn_on
+                            data:
+                              entity_id: "{{ is_automation_running_id }}"
+
+          # 3️⃣ Reintento si tenemos sensor on/off
+          - choose:
+              - conditions:
+                  - condition: template
+                    value_template: "{{ ac_sensor_on_off_id != '' }}"
+                sequence:
+                  - delay: !input turn_off_retry_delay
+                  - condition: state
+                    entity_id: !input ac_sensor_on_off
+                    state: "on"
+                  - choose:
+                      - conditions:
+                          - condition: template
+                            value_template: "{{ ac_failure_counter_id != '' }}"
+                        sequence:
+                          - service: counter.increment
+                            data:
+                              entity_id: "{{ ac_failure_counter_id }}"
+                  - sequence: !input turn_off_ac_action
+
+      # ------------------------  NOT EMPTY  -------------------- #
+      - conditions:
           - condition: trigger
-            id:
-              - not empty
-    then:
-      - metadata: {}
-        data: {}
-        target:
-          entity_id: !input is_automation_running
-        action: homeassistant.turn_off
-      - data:
-          config_entry: !input google_sheet
-          worksheet: !input google_sheet_name
-          data:
-            type: VUELTA
-            apartment: !input apartment_id
-        action: google_sheets.append_sheet
+            id: not_empty
+        sequence:
+          - choose:
+              - conditions:
+                  - condition: template
+                    value_template: "{{ is_automation_running_id != '' }}"
+                sequence:
+                  - service: homeassistant.turn_off
+                    data:
+                      entity_id: "{{ is_automation_running_id }}"
+          - choose:
+              - conditions:
+                  - condition: template
+                    value_template: "{{ google_sheet_id != '' }}"
+                sequence:
+                  - service: google_sheets.append_sheet
+                    data:
+                      config_entry: !input google_sheet
+                      worksheet: !input google_sheet_name
+                      data:
+                        type: "VUELTA"
+                        apartment: !input apartment_id
+
+mode: restart
