@@ -1,0 +1,44 @@
+blueprint:
+  name: Check Out Button
+  description: >-
+    Handles the behavior of the checkout button
+  domain: automation
+  input:
+    checkout_button:
+      name: Checkout Button
+      description: The button to check out
+      selector:
+        device:
+    checkout_today:
+      name: Checkout Today Sensor (Optional)
+      description: The sensor to check if the checkout is today
+      default: ""
+      selector:
+        entity:
+          filter:
+            - domain: binary_sensor
+    checkout_actions:
+      name: Checkout Actions
+      description: The actions to perform on checkout
+      selector:
+        action:
+
+variables:
+  checkout_today: !input checkout_today
+
+triggers:
+  - device_id: !input checkout_button
+    domain: mqtt
+    type: action
+    subtype: single
+    trigger: device
+  - device_id: !input checkout_button
+    domain: mqtt
+    type: action
+    subtype: hold
+    trigger: device
+conditions:
+  - condition: template
+    value_template: "{{ checkout_today == '' or (checkout_today != '' and is_state(checkout_today, 'on')) }}"
+actions:
+  - sequence: !input checkout_actions
