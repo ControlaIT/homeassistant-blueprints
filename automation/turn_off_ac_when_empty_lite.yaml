@@ -1,0 +1,130 @@
+blueprint:
+  name: Turn off A/C when empty (LITE)
+  description: >-
+    Automatically turns off the A/C when the apartment is empty for a specified
+    duration and logs the events in a Google Sheet. 
+  domain: automation
+  input:
+    apartment_id:
+      name: Apartment ID
+      description: >-
+        Unique identifier for the apartment (e.g., 1-1).
+      selector:
+        text:
+      default: "1-1"
+    presence_sensor:
+      name: Presence Sensor
+      description: >-
+        Binary sensor that detects presence in the apartment (e.g., motion sensor).
+      selector:
+        entity:
+          filter:
+            - domain: binary_sensor
+              device_class: occupancy
+            - domain: binary_sensor
+              device_class: presence
+          multiple: false
+    empty_duration:
+      name: Empty Duration
+      description: >-
+        Duration for which the apartment should be empty before actions are taken.
+      default: "00:45:00"
+      selector:
+        duration: {}
+    not_empty_duration:
+      name: Return Duration
+      description: >-
+        Duration for the presence detection needs to be on to consider the guests have return (in case they come in an out for something they forgot).
+      default: "00:02:00"
+      selector:
+        duration: {}
+    ac_success_counter:
+      name: A/C Success Counter
+      description: >-
+        Counter to track the number of successful A/C turn-offs.
+      selector:
+        entity:
+          filter:
+            - domain: counter
+          multiple: false
+    google_sheet:
+      name: Google Sheet (Optional)
+      description: >-
+        Google Sheet to log the events (e.g., A/C turn-off events).
+      default: ""
+      selector:
+        config_entry:
+          integration: google_sheets
+    google_sheet_name:
+      name: Google Sheet Name (Optional)
+      description: >-
+        Name of the Google Sheet to log the events (e.g., A/C turn-off events).
+      selector:
+        text:
+      default: "log"
+    turn_off_ac_action:
+      name: Turn Off A/C Action
+      description: >-
+        Action to turn off the A/C (e.g., script or service).
+      selector:
+        action:
+variables: {}
+
+triggers:
+  - entity_id: !input presence_sensor
+    from: null
+    to: "off"
+    for: !input empty_duration
+    alias: Empty
+    id: empty
+    trigger: state
+  - alias: Not empty
+    entity_id: !input presence_sensor
+    from: null
+    to: "on"
+    for: !input not_empty_duration
+    id: not empty
+    trigger: state
+conditions: []
+actions:
+  - alias: Turn off A/C
+    if:
+      - condition: trigger
+        id:
+          - empty
+    then:
+      - sequence: !input turn_off_ac_action
+      - if:
+        - condition: template
+          value_template: "{{ google_sheet != '' }}"
+        then: 
+          - action: google_sheets.append_sheet
+            data:
+              config_entry: !input google_sheet
+              worksheet: !input google_sheet_name
+              data:
+                type: "OFF"
+                consumption: "-"
+                apartment: !input apartment_id
+      - action: counter.increment
+        metadata: {}
+        data: {}
+        target:
+          entity_id: !input ac_success_counter
+  - alias: Not empty
+    if:
+      - condition: trigger
+        id:
+          - not empty
+    then:
+      if:
+        - condition: template
+          value_template: "{{ google_sheet != '' }}"
+      then:
+        - action: google_sheets.append_sheet
+          data:
+            config_entry: !input google_sheet
+            worksheet: !input google_sheet_name
+            data:
+              type: VUELTA
+              apartment: !input apartment_id

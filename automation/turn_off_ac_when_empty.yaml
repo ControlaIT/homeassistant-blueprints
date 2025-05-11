@@ -1,5 +1,5 @@
 blueprint:
-  name: Turn off A/C when empty
+  name: Turn off A/C when empty (FULL)
   description: >-
     Automatically turns off the A/C when the apartment is empty for a specified
     duration and logs the events in a Google Sheet. 
@@ -32,10 +32,10 @@ blueprint:
       selector:
         duration: {}
     not_empty_duration:
-      name: Not Empty Duration
+      name: Return Duration
       description: >-
-        Duration for which the apartment should be occupied before actions are taken.
-      default: "00:05:30"
+        Duration for the presence detection needs to be on to consider the guests have return (in case they come in an out for something they forgot).
+      default: "00:02:00"
       selector:
         duration: {}
     ac_power_sensor:
@@ -49,9 +49,10 @@ blueprint:
               device_class: power
           multiple: false
     ac_sensor_on_off:
-      name: A/C Sensor
+      name: A/C Sensor (Optional)
       description: >-
-        Sensor that detects the state of the A/C (e.g., on/off).
+        Sensor that detects the state of the A/C (e.g., on/off) if not provided, will assume that the power > 10W is on.
+      default: ""
       selector:
         entity:
           filter:
@@ -77,28 +78,20 @@ blueprint:
             - domain: counter
           multiple: false
     google_sheet:
-      name: Google Sheet
+      name: Google Sheet (Optional)
       description: >-
         Google Sheet to log the events (e.g., A/C turn-off events).
+      default: ""
       selector:
         config_entry:
           integration: google_sheets
     google_sheet_name:
-      name: Google Sheet Name
+      name: Google Sheet Name (Optional)
       description: >-
         Name of the Google Sheet to log the events (e.g., A/C turn-off events).
       selector:
         text:
       default: "log"
-    is_automation_running:
-      name: Is Automation Running
-      description: >-
-        Input boolean to check if the automation is running.
-      selector:
-        entity:
-          filter:
-            - domain: input_boolean
-          multiple: false
     turn_off_ac_action:
       name: Turn Off A/C Action
       description: >-
@@ -109,13 +102,27 @@ blueprint:
       name: Turn Off Retry Delay
       description: >-
         Delay before retrying to turn off the A/C if it fails.
-      default: "00:05:00"
+      default: "00:00:10"
       selector:
         duration: {}
+    turn_off_retries:
+      name: Turn Off Retries
+      description: >-
+        Number of retries to turn off the A/C if it fails (set to 0 to not retry).
+      default: 3
+      selector:
+        number:
+          min: 0
+          max: 10
+          mode: box
+          unit_of_measurement: "retries"
+          step: 1
     
 
 variables:
   ac_power_sensor: !input ac_power_sensor
+  input_ac_sensor_on_off: !input ac_sensor_on_off
+  turn_off_retries: !input turn_off_retries
 
 triggers:
   - entity_id: !input presence_sensor
@@ -136,66 +143,94 @@ conditions: []
 actions:
   - alias: Turn off A/C
     if:
-      - condition: and
-        conditions:
-          - condition: trigger
-            id:
-              - empty
-          - condition: state
-            entity_id: !input ac_sensor_on_off
-            state: "on"
+      - condition: trigger
+        id:
+          - empty
     then:
-      - data:
-          config_entry: !input google_sheet
-          worksheet: !input google_sheet_name
-          data:
-            type: "OFF"
-            consumption: "{{ states(ac_power_sensor) | float(0)}}"
-            apartment: !input apartment_id
-        action: google_sheets.append_sheet
-      - metadata: {}
-        data: {}
-        target:
-          entity_id: !input ac_success_counter
-        action: counter.increment
-      - metadata: {}
-        data: {}
-        target:
-          entity_id: !input is_automation_running
-        action: homeassistant.turn_on
-      - sequence: !input turn_off_ac_action
-      - delay: !input turn_off_retry_delay
+      - variables:
+          retry_count: 0
+      - repeat:
+          sequence: 
+            # we store the values before turning it off
+            - variables:
+                # we assume anything other than off is on.
+                retry_count: "{{ retry_count + 1 }}"
+                current_consumption: "{{ states(ac_power_sensor) | float(0) }}"
+                is_ac_on: >
+                    {% if input_ac_sensor_on_off != '' %}
+                      {{ is_state(input_ac_sensor_on_off,'on') }}
+                    {% else %}
+                      {{ current_consumption > 10 }}
+                    {% endif %}
+            - sequence: !input turn_off_ac_action
+            # now we check if it was on and we turned it off
+            - delay: !input turn_off_retry_delay
+            - variables:
+                was_ac_on: "{{ is_ac_on }}"
+                is_ac_on: >
+                    {% if input_ac_sensor_on_off != '' %}
+                      {{ is_state(input_ac_sensor_on_off,'on') }}
+                    {% else %}
+                      {{ states(ac_power_sensor) | float(0) > 10 }}
+                    {% endif %}
+          until: "{{ not is_ac_on or retry_count > turn_off_retries }}"
       - if:
-          - condition: state
-            entity_id: !input ac_sensor_on_off
-            state: "on"
+          - condition: template
+            value_template: "{{ was_ac_on and not is_ac_on }}"
         then:
-          - metadata: {}
+          - action: counter.increment
+            metadata: {}
+            data: {}
+            target:
+              entity_id: !input ac_success_counter
+          - if:
+            - condition: template
+              value_template: "{{ google_sheet != '' }}"
+            then:
+              - action: google_sheets.append_sheet
+                data:
+                  config_entry: !input google_sheet
+                  worksheet: !input google_sheet_name
+                  data:
+                    type: "OFF"
+                    consumption: "{{ current_consumption }}"
+                    apartment: !input apartment_id
+      - if:
+          - condition: template
+            value_template: "{{ was_ac_on and is_ac_on }}"
+        then:
+          - if:
+              - condition: template
+                value_template: "{{ google_sheet != '' }}"
+            then:
+              - action: google_sheets.append_sheet
+                data:
+                  config_entry: !input google_sheet
+                  worksheet: !input google_sheet_name
+                  data:
+                    type: "FAIL"
+                    consumption: "{{ states(ac_power_sensor) | float(0)}}"
+                    apartment: !input apartment_id
+          - action: counter.increment
+            metadata: {}
             data: {}
             target:
               entity_id: !input ac_failure_counter
-            action: counter.increment
-          - sequence: !input turn_off_ac_action
   - alias: Not empty
     if:
-      - condition: and
-        conditions:
-          - condition: state
-            entity_id: !input is_automation_running
-            state: "on"
-          - condition: trigger
-            id:
-              - not empty
+      - condition: trigger
+        id:
+          - not empty
     then:
-      - metadata: {}
-        data: {}
-        target:
-          entity_id: !input is_automation_running
-        action: homeassistant.turn_off
-      - data:
-          config_entry: !input google_sheet
-          worksheet: !input google_sheet_name
-          data:
-            type: VUELTA
-            apartment: !input apartment_id
-        action: google_sheets.append_sheet
+      - if:
+          - condition: template
+            value_template: "{{ google_sheet != '' }}"
+        then:
+          - action: google_sheets.append_sheet
+            data:
+              config_entry: !input google_sheet
+              worksheet: !input google_sheet_name
+              data:
+                type: VUELTA
+                apartment: !input apartment_id
+
