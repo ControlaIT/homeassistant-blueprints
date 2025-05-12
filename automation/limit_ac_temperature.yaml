@@ -40,8 +40,7 @@ blueprint:
 
     ac_running_sensor:
       name: A/C Running Sensor
-      description: "Binary sensor that is 'on' while the A/C is actively running (optional). Prefer device_class 'running' or 'power'. Leave blank to ignore."
-      default: ""
+      description: "Binary sensor that is 'on' while the A/C is actively running"
       selector:
         entity:
           filter:
@@ -71,7 +70,7 @@ trigger:
 # Only run if the provided A/C running sensor is either blank or reporting 'on'.
 condition:
   - condition: template
-    value_template: "{{ ac_running == '' or is_state(ac_running, 'on') }}"
+    value_template: "{{ is_state(ac_running, 'on') }}"
 
 
 action:
