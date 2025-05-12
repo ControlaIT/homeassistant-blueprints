@@ -60,6 +60,7 @@ variables:
   below_th: !input below_threshold
   above_th: !input above_threshold
   counter: !input ac_limited_counter
+  ac_running: !input ac_running_sensor
 
 trigger:
   - platform: numeric_state
