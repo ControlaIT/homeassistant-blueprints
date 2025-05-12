@@ -37,6 +37,19 @@ blueprint:
       selector:
         entity:
           domain: counter
+
+    ac_running_sensor:
+      name: A/C Running Sensor
+      description: "Binary sensor that is 'on' while the A/C is actively running"
+      selector:
+        entity:
+          filter:
+            - domain: binary_sensor
+              device_class: running
+            - domain: binary_sensor
+              device_class: power
+          multiple: false
+
     actions:
       name: Actions to perform
       description: "Actions to execute when threshold is crossed"
@@ -47,6 +60,7 @@ variables:
   below_th: !input below_threshold
   above_th: !input above_threshold
   counter: !input ac_limited_counter
+  ac_running: !input ac_running_sensor
 
 trigger:
   - platform: numeric_state
@@ -54,7 +68,11 @@ trigger:
     below: !input below_threshold
     above: !input above_threshold
 
-condition: []
+# Only run if the provided A/C running sensor is either blank or reporting 'on'.
+condition:
+  - condition: template
+    value_template: "{{ is_state(ac_running, 'on') }}"
+
 
 action:
   - if:
