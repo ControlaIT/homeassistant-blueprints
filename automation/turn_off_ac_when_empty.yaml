@@ -58,6 +58,8 @@ blueprint:
           filter:
             - domain: binary_sensor
               device_class: running
+            - domain: binary_sensor
+              device_class: power
           multiple: false
     ac_success_counter:
       name: A/C Success Counter
@@ -123,6 +125,8 @@ variables:
   ac_power_sensor: !input ac_power_sensor
   input_ac_sensor_on_off: !input ac_sensor_on_off
   turn_off_retries: !input turn_off_retries
+  appartment_id: !input apartment_id
+  tracking_scene_id: ac_was_on_{{ appartment_id | regex_replace('[^a-zA-Z0-9_]', '_') }}
 
 triggers:
   - entity_id: !input presence_sensor
@@ -185,6 +189,15 @@ actions:
               entity_id: !input ac_success_counter
           - if:
             - condition: template
+              value_template: "{{ states['scene.' ~ tracking_scene_id] == None }}"
+            then:
+              - action: scene.create
+                data:
+                  scene_id: "{{ tracking_scene_id }}"
+                  snapshot_entities:
+                    - sun.sun
+          - if:
+            - condition: template
               value_template: "{{ google_sheet != '' }}"
             then:
               - action: google_sheets.append_sheet
@@ -216,6 +229,15 @@ actions:
             data: {}
             target:
               entity_id: !input ac_failure_counter
+          - if:
+            - condition: template
+              value_template: "{{ states['scene.' ~ tracking_scene_id] == None }}"
+            then:
+              - action: scene.create
+                data:
+                  scene_id: "{{ tracking_scene_id }}"
+                  snapshot_entities:
+                    - sun.sun
   - alias: Not empty
     if:
       - condition: trigger
@@ -225,6 +247,8 @@ actions:
       - if:
           - condition: template
             value_template: "{{ google_sheet != '' }}"
+          - condition: template
+            value_template: "{{ states['scene.' ~ tracking_scene_id] != None }}"
         then:
           - action: google_sheets.append_sheet
             data:
@@ -233,4 +257,12 @@ actions:
               data:
                 type: VUELTA
                 apartment: !input apartment_id
+      - if:
+          - condition: template
+            value_template: "{{ states['scene.' ~ tracking_scene_id] != None }}"
+        then:
+          - action: scene.delete
+            data: {}
+            target:
+              entity_id: "{{ 'scene.' ~ tracking_scene_id }}"
 
