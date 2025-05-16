@@ -9,6 +9,15 @@ blueprint:
       description: The button to check out
       selector:
         device:
+    checkout_button_cooldown:
+      name: Checkout Button Cooldown Period
+      description: The cooldown time for the checkout button so we don't count double presses
+      default: 5
+      selector:
+        number:
+          min: 0
+          max: 180
+          unit_of_measurement: minutes
     checkout_today:
       name: Checkout Today Sensor (Optional)
       description: The sensor to check if the checkout is today
@@ -25,7 +34,8 @@ blueprint:
 
 variables:
   checkout_today: !input checkout_today
-
+  checkout_button_cooldown: !input checkout_button_cooldown
+# añadir dque no se ha haga en un tiempo http://reddit.com/r/homeassistant/comments/1khnxhs/simple_solution_limit_home_assistant_automations/?share_id=y7MSwVM5vxsYLjWMTxMmm&utm_medium=ios_app&utm_name=iossmf&utm_source=share&utm_term=3
 triggers:
   - device_id: !input checkout_button
     domain: mqtt
@@ -39,6 +49,16 @@ triggers:
     trigger: device
 conditions:
   - condition: template
+    value_template: >-
+      {{ this.attributes.last_triggered is none or (now() -
+      this.attributes.last_triggered).total_seconds() > ((checkout_button_cooldown | int(0)) * 60) }}
+  - condition: template
     value_template: "{{ checkout_today == '' or (checkout_today != '' and is_state(checkout_today, 'on')) }}"
 actions:
   - sequence: !input checkout_actions
+
+
+  # check out
+  # NEXT STEPS Base de datos para el aire
+  # Cambiar automatización de aire para on/off y power sensor
+  # mirar el script de smlight
