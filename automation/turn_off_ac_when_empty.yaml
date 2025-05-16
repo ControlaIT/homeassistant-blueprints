@@ -38,27 +38,28 @@ blueprint:
       default: "00:02:00"
       selector:
         duration: {}
-    ac_power_sensor:
-      name: A/C Power Sensor
-      description: >-
-        Sensor that measures the power consumption of the A/C (e.g., power sensor).
-      selector:
-        entity:
-          filter:
-            - domain: sensor
-              device_class: power
-          multiple: false
     ac_sensor_on_off:
-      name: A/C Sensor (Optional)
+      name: A/C Sensor
       description: >-
         Sensor that detects the state of the A/C (e.g., on/off) if not provided, will assume that the power > 10W is on.
-      default: ""
+      # default: ""
       selector:
         entity:
           filter:
             - domain: binary_sensor
               device_class: running
             - domain: binary_sensor
+              device_class: power
+          multiple: false
+    ac_power_sensor:
+      name: A/C Power Sensor (Optional)
+      description: >-
+        Sensor that measures the power consumption of the A/C (e.g., power sensor).
+      default: ""
+      selector:
+        entity:
+          filter:
+            - domain: sensor
               device_class: power
           multiple: false
     ac_success_counter:
@@ -104,7 +105,7 @@ blueprint:
       name: Turn Off Retry Delay
       description: >-
         Delay before retrying to turn off the A/C if it fails.
-      default: "00:00:10"
+      default: "00:01:00"
       selector:
         duration: {}
     turn_off_retries:
@@ -159,7 +160,7 @@ actions:
             - variables:
                 # we assume anything other than off is on.
                 retry_count: "{{ retry_count + 1 }}"
-                current_consumption: "{{ states(ac_power_sensor) | float(0) }}"
+                current_consumption: "{{ (states(ac_power_sensor) | float(0)) if ac_power_sensor != '' else -1 }}"
                 is_ac_on: >
                     {% if input_ac_sensor_on_off != '' %}
                       {{ is_state(input_ac_sensor_on_off,'on') }}
@@ -175,7 +176,7 @@ actions:
                     {% if input_ac_sensor_on_off != '' %}
                       {{ is_state(input_ac_sensor_on_off,'on') }}
                     {% else %}
-                      {{ states(ac_power_sensor) | float(0) > 10 }}
+                      {{ ((states(ac_power_sensor) | float(0)) if ac_power_sensor != '' else -1) > 10 }}
                     {% endif %}
           until: "{{ not is_ac_on or retry_count > turn_off_retries }}"
       - if:
@@ -222,7 +223,7 @@ actions:
                   worksheet: !input google_sheet_name
                   data:
                     type: "FAIL"
-                    consumption: "{{ states(ac_power_sensor) | float(0)}}"
+                    consumption: "{{ (states(ac_power_sensor) | float(0)) if ac_power_sensor != '' else -1 }}"
                     apartment: !input apartment_id
           - action: counter.increment
             metadata: {}
