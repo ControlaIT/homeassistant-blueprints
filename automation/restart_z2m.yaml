@@ -1,0 +1,134 @@
+blueprint:
+  name: Restart Zigbee2MQTT
+  description: Restart Zigbee2MQTT service
+  domain: automation
+  input:
+    apartment_id:
+      name: Apartment ID
+      description: >-
+        Unique identifier for the apartment (e.g., 1-1).
+      selector:
+        text:
+      default: "1-1"
+    z2m_bridge:
+      name: ZigbeeMQTT Bridge
+      description: The entity ID of the Zigbee2MQTT bridge
+      selector:
+        entity:
+          integration: mqtt
+          domain: binary_sensor
+    z2m_addon:
+      name: Zigbee2MQTT Add-on
+      description: The add-on ID of the Zigbee2MQTT service
+      default: "45df7312_zigbee2mqtt"
+      selector:
+        addon:
+    retry_delay:
+      name: Retry Delay
+      default: 
+        minutes: 1
+      description: The delay between restart attempts.
+      selector:
+        duration:
+    max_attempts:
+      name: Maximum Restart Attempts
+      default: 15
+      description: The maximum number of restart attempts before giving up.
+      selector:
+        number:
+          min: 1
+          max: 100
+          step: 1
+          unit_of_measurement: "attempts"
+    notify_script:
+      name: Notification Script
+      description: Script to send the notification (it has to have an input called "message")
+      default: notify.persistent_notification
+      selector:
+        entity:
+          multiple: false
+          filter:
+            - domain: script
+    success_counter:
+      name: Success Counter
+      default: ""
+      description: Counter to track the number of successful restarts.
+      selector:
+        entity:
+          filter:
+            - domain: counter
+          multiple: false
+    failure_counter:
+      name: Failure Counter
+      default: ""
+      description: Counter to track the number of failed restarts.
+      selector:
+        entity:
+          filter:
+            - domain: counter
+          multiple: false
+variables:
+  retry_delay: !input retry_delay
+  max_attempts: !input max_attempts
+  z2m_bridge: !input z2m_bridge
+  apartment_id: !input apartment_id
+  success_counter: !input success_counter
+  failure_counter: !input failure_counter
+trigger:
+  - platform: state
+    entity_id: !input z2m_bridge
+    from: null
+    to: 
+      - "off"
+      - unavailable
+      - unknown
+    for: !input retry_delay
+condition: []
+action:
+  - variables:
+      attempt_count: 0
+  - repeat:
+      while:
+        - condition: template
+          value_template: "{{ attempt_count < max_attempts }}"
+        - condition: state
+          entity_id: !input z2m_bridge
+          state: 
+            - "off"
+            - unavailable
+            - unknown
+      sequence:
+        - action: hassio.addon_restart
+          data:
+            addon: !input z2m_addon
+        - delay: !input retry_delay
+        - variables:
+            attempt_count: "{{ attempt_count + 1 }}"
+  - if:
+      - condition: state
+        entity_id: !input z2m_bridge
+        state: 
+          - "off"
+          - unavailable
+          - unknown
+    then:
+      - action: !input notify_script
+        data:
+          message: "{{ apartment_id }}: {{ device_attr(z2m_bridge,'name') }} failed to restart after {{ max_attempts }} attempts."
+      - if:
+          - condition: template
+            value_template: "{{ failure_counter != '' }}"
+        then:
+          - service: counter.increment
+            target:
+              entity_id:  "{{ failure_counter }}"
+    else:
+      - if:
+          - condition: template
+            value_template: "{{ success_counter != '' }}"
+        then:
+          - service: counter.increment
+            target:
+              entity_id:  "{{ success_counter }}"
+
+mode: single
