@@ -8,8 +8,9 @@ blueprint:
       description: "The sensor to monitor for temperature changes"
       selector:
         entity:
-          domain: sensor
-          device_class: temperature
+          filter:
+           - domain: sensor
+             device_class: temperature
     below_threshold:
       name: Below Threshold
       description: "Temperature below which to trigger (optional)"
@@ -36,7 +37,8 @@ blueprint:
       default: ""
       selector:
         entity:
-          domain: counter
+          filter:
+            - domain: counter
 
     ac_running_sensor:
       name: A/C Running Sensor
@@ -57,36 +59,39 @@ blueprint:
         action:
 
 variables:
+  temperature_sensor: !input temperature_sensor
   below_th: !input below_threshold
   above_th: !input above_threshold
   counter: !input ac_limited_counter
   ac_running: !input ac_running_sensor
 
-trigger:
-  - platform: numeric_state
+triggers:
+  - trigger: numeric_state
     entity_id: !input temperature_sensor
     below: !input below_threshold
     above: !input above_threshold
+  - trigger: state
+    entity_id: !input ac_running_sensor
+    from: "off"
+    to: "on"
+    for: "00:00:05"
 
 # Only run if the provided A/C running sensor is either blank or reporting 'on'.
 condition:
   - condition: template
     value_template: "{{ is_state(ac_running, 'on') }}"
+  - condition: template
+    value_template: "{{ ((states(temperature_sensor) | float) < below_th) or ((states(temperature_sensor) | float) > above_th) }}"
 
 
 action:
-  - if:
-      - condition: state
-        entity_id: binary_sensor.ac_sensor_on_off
-        state: 'on'
+  - if:         
+    - condition: template
+      value_template: "{{ counter != '' }}"
     then:
-      - if:         
-        - condition: template
-          value_template: "{{ counter != '' }}"
-        then:
-          - action: counter.increment
-            target:
-              entity_id: "{{ counter }}"
+      - action: counter.increment
+        target:
+          entity_id: "{{ counter }}"
   - sequence: !input actions
 
 mode: single
