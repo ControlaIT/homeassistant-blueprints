@@ -1,0 +1,87 @@
+blueprint:
+  name: Check Out State Machine
+  description: Handles the check out state machine
+  domain: automation
+  input:
+    state_machine_entity:
+      name: State Machine
+      selector:
+        entity:
+          filter:
+            - domain: input_select
+    button_action_entity:
+      name: Button Action Entity
+      selector:
+        entity:
+          filter:
+            - domain: sensor
+    # button_cooldown:
+    #   name: Button Cooldown Period
+    #   description: The cooldown time for the checkout button so we don't count double presses
+    #   default: 5
+    #   selector:
+    #     number:
+    #       min: 0
+    #       max: 180
+    #       unit_of_measurement: minutes
+    checkout_today_entity:
+      name: Checkout Today Entity
+      description: The sensor to check if the checkout is today
+      selector:
+        entity:
+          filter:
+            - domain: binary_sensor
+triggers:
+  - trigger: state
+    entity_id: !input button_action_entity
+    to: single
+    id: button_pressed
+  - trigger: state
+    entity_id: !input checkout_today_entity
+    to: "on"
+    id: enter_checkout_day
+  - trigger: state
+    entity_id: !input checkout_today_entity
+    to: "off"
+    id: leave_checkout_day
+conditions: []
+actions:
+  - choose:
+      - conditions:
+          - condition: trigger
+            id:
+              - enter_checkout_day
+        sequence:
+          - action: input_select.select_option
+            metadata: {}
+            data:
+              option: not_checked_out
+            target:
+              entity_id: !input state_machine_entity
+      - conditions:
+          - condition: trigger
+            id:
+              - leave_checkout_day
+        sequence:
+          - action: input_select.select_option
+            metadata: {}
+            data:
+              option: not_applicable
+            target:
+              entity_id: !input state_machine_entity
+      - conditions:
+          - condition: trigger
+            id:
+              - button_pressed
+          - condition: state
+            entity_id: binary_sensor.check_out_today_test
+            state: "on"
+        sequence:
+          - action: input_select.select_option
+            metadata: {}
+            data:
+              option: checked_out
+            target:
+              entity_id: !input state_machine_entity
+mode: queued
+max: 10
