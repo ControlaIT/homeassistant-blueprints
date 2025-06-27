@@ -11,10 +11,18 @@ blueprint:
             - domain: input_select
     button_action_entity:
       name: Button Action Entity
+      description: The Button Action Entity (Optional, if not needed type sensor.dummy)
+      default: "sensor.dummy"
       selector:
         entity:
           filter:
             - domain: sensor
+    button_device:
+      name: Checkout Button
+      description: The Button Device (MQTT) (Optional, if not needed select any device that is not mqtt, sun for instance)
+      default: "device_id"
+      selector:
+        device:
     # button_cooldown:
     #   name: Button Cooldown Period
     #   description: The cooldown time for the checkout button so we don't count double presses
@@ -31,10 +39,17 @@ blueprint:
         entity:
           filter:
             - domain: binary_sensor
+
 triggers:
   - trigger: state
     entity_id: !input button_action_entity
     to: single
+    id: button_pressed
+  - trigger: device
+    device_id: !input button_device
+    domain: mqtt
+    type: action
+    subtype: single
     id: button_pressed
   - trigger: state
     entity_id: !input checkout_today_entity
