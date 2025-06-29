@@ -89,7 +89,7 @@ actions:
             id:
               - button_pressed
           - condition: state
-            entity_id: binary_sensor.check_out_today_test
+            entity_id: !input checkout_today_entity
             state: "on"
         sequence:
           - action: input_select.select_option
