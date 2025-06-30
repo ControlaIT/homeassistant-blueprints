@@ -94,11 +94,6 @@ actions:
               option: not_applicable
             target:
               entity_id: !input state_machine_entity
-          - action: python_script.set_state
-            data: 
-              entity_id: !input state_machine_entity
-              state: "checked_out"
-              checkout_time: null
       - conditions:
           - condition: trigger
             id:
