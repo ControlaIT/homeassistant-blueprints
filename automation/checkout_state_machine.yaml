@@ -39,6 +39,15 @@ blueprint:
         entity:
           filter:
             - domain: binary_sensor
+    # occupancy_sensor_entity:
+    #   name: Occupancy Sensor
+    #   description: Sensor for the occupancy of the flat
+    #   selector:
+    #     entity:
+    #       filter:
+    #         - domain: binary_sensor
+    #           device_class: occupancy
+    #   default: "sensor.dummy"
 
 triggers:
   - trigger: state
@@ -53,6 +62,7 @@ triggers:
     id: button_pressed
   - trigger: state
     entity_id: !input checkout_today_entity
+    from: "off"
     to: "on"
     id: enter_checkout_day
   - trigger: state
@@ -84,6 +94,11 @@ actions:
               option: not_applicable
             target:
               entity_id: !input state_machine_entity
+          - action: python_script.set_state
+            data: 
+              entity_id: !input state_machine_entity
+              state: "checked_out"
+              checkout_time: null
       - conditions:
           - condition: trigger
             id:
@@ -91,6 +106,10 @@ actions:
           - condition: state
             entity_id: !input checkout_today_entity
             state: "on"
+          - condition: state
+            entity_id: !input state_machine_entity
+            state: 
+              - not_checked_out
         sequence:
           - action: input_select.select_option
             metadata: {}
@@ -98,5 +117,10 @@ actions:
               option: checked_out
             target:
               entity_id: !input state_machine_entity
+          - action: python_script.set_state
+            data: 
+              entity_id: !input state_machine_entity
+              state: "checked_out"
+              checkout_time: "{{ now() }}"
 mode: queued
 max: 10
