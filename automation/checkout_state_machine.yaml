@@ -23,15 +23,6 @@ blueprint:
       default: "device_id"
       selector:
         device:
-    # button_cooldown:
-    #   name: Button Cooldown Period
-    #   description: The cooldown time for the checkout button so we don't count double presses
-    #   default: 5
-    #   selector:
-    #     number:
-    #       min: 0
-    #       max: 180
-    #       unit_of_measurement: minutes
     checkout_today_entity:
       name: Checkout Today Entity
       description: The sensor to check if the checkout is today
@@ -39,16 +30,40 @@ blueprint:
         entity:
           filter:
             - domain: binary_sensor
-    # occupancy_sensor_entity:
-    #   name: Occupancy Sensor
-    #   description: Sensor for the occupancy of the flat
-    #   selector:
-    #     entity:
-    #       filter:
-    #         - domain: binary_sensor
-    #           device_class: occupancy
-    #   default: "sensor.dummy"
-
+    occupancy_sensor_entity:
+      name: Occupancy Sensor
+      description: Sensor for the occupancy of the apartment
+      selector:
+        entity:
+          filter:
+            - domain: binary_sensor
+              device_class: occupancy
+      default: "sensor.dummy"
+    force_checkout_button_entity:
+      name: Force Checkout Button
+      description: Input Button to force the checkout when the guest forgets
+      selector:
+        entity:
+          filter:
+            - domain: input_button
+      default: input_button.dummy
+    helper_checkout_time_entity:
+      name: Checkout Time Helper
+      selector:
+        entity:
+          filter:
+            - domain: input_datetime
+      default: "input_datetime.dummy"
+    helper_last_movement_time_entity:
+      name: Last Movement Time Helper
+      selector:
+        entity:
+          filter:
+            - domain: input_datetime
+      default: "input_datetime.dummy"
+trigger_variables:
+  input_state_machine_entity: !input state_machine_entity
+  input_occupancy_sensor_entity: !input occupancy_sensor_entity
 triggers:
   - trigger: state
     entity_id: !input button_action_entity
@@ -61,6 +76,12 @@ triggers:
     subtype: single
     id: button_pressed
   - trigger: state
+    entity_id:
+      - input_button.force_check_out_demo_apt_1
+    id: button_pressed
+    from:
+    to:
+  - trigger: state
     entity_id: !input checkout_today_entity
     from: "off"
     to: "on"
@@ -69,6 +90,18 @@ triggers:
     entity_id: !input checkout_today_entity
     to: "off"
     id: leave_checkout_day
+  - trigger: template
+    value_template: >
+      {{ is_state(input_state_machine_entity,'not_checked_out')
+        and is_state(input_occupancy_sensor_entity,'off') 
+      }}
+    id: no_presence
+  - trigger: template
+    value_template: >
+      {{ is_state(input_state_machine_entity,'not_checked_out')
+        and is_state(input_occupancy_sensor_entity,'on') 
+      }}
+    id: still_presence
 conditions: []
 actions:
   - choose:
@@ -99,11 +132,8 @@ actions:
             id:
               - button_pressed
           - condition: state
-            entity_id: !input checkout_today_entity
-            state: "on"
-          - condition: state
             entity_id: !input state_machine_entity
-            state: 
+            state:
               - not_checked_out
         sequence:
           - action: input_select.select_option
@@ -112,10 +142,32 @@ actions:
               option: checked_out
             target:
               entity_id: !input state_machine_entity
-          - action: python_script.set_state
-            data: 
-              entity_id: !input state_machine_entity
-              state: "checked_out"
-              checkout_time: "{{ now() }}"
+          - action: input_datetime.set_datetime
+            target:
+              entity_id: !input helper_checkout_time_entity
+            data:
+              time: "{{ now().strftime('%H:%M:%S') }}"
+      - conditions:
+          - condition: trigger
+            id:
+              - no_presence
+        sequence:
+          - action: input_datetime.set_datetime
+            target:
+              entity_id: !input helper_last_movement_time_entity
+            data:
+              time: "{{ now().strftime('%H:%M:%S') }}"
+      - conditions:
+          - condition: trigger
+            id:
+              - still_presence
+        sequence:
+          - action: input_datetime.set_datetime
+            target:
+              entity_id: !input helper_last_movement_time_entity
+            data:
+              time: 00:00:00
 mode: queued
-max: 10
+max: 100
+trace:
+  stored_traces: 20
