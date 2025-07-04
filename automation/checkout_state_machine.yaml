@@ -77,7 +77,7 @@ triggers:
     id: button_pressed
   - trigger: state
     entity_id:
-      - input_button.force_check_out_demo_apt_1
+      - !input force_checkout_button_entity
     id: button_pressed
     from:
     to:
