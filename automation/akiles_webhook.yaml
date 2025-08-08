@@ -1,0 +1,48 @@
+blueprint:
+  name: Akiles webhook to event
+  description: >- 
+    Creates a webhook in home assistant to consume Akiles events and the get translated into HA Events
+    with type `akiles_event` and payload:
+    ```yaml
+      data:
+        gadget_id:
+        member_id:
+        action:
+        timestamp: 
+    ```
+  domain: automation
+  input: 
+    webhook_id:
+      name: Webhook ID
+      description: The id of the webhook. The URL will be https://<your-homeassistant>/api/webhook/<webhook_id>
+triggers:
+  - trigger: webhook
+    allowed_methods:
+      - POST
+    local_only: false
+    webhook_id: !input webhook_id
+  
+conditions: []
+actions:
+  - action: mqtt.publish
+    metadata: {}
+    data:
+      evaluate_payload: false
+      qos: 0
+      retain: false
+      topic: akiles/{{trigger.json.object.gadget_id}}
+      payload: |-
+        {
+          "member_id":"{{trigger.json.subject.member_id}}",
+          "action": "{{trigger.json.object.gadget_action_id}}",
+          "timestamp": "{{trigger.json.created_at}}"
+        }
+    enabled: false
+  - event: akiles_event
+    event_data:
+      gadget_id: "{{trigger.json.object.gadget_id}}"
+      member_id: "{{trigger.json.subject.member_id}}"
+      action: "{{trigger.json.object.gadget_action_id}}"
+      timestamp: "{{trigger.json.created_at}}"
+mode: queued
+max: 20

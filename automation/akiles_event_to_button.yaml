@@ -1,0 +1,52 @@
+blueprint:
+  name: Akiles Event To Button
+  domain: automation
+  description: Translates an event from akiles into a HA button press
+  input:
+    button:
+      name: Button to press
+      selector:
+        entity:
+          filter:
+            - domain: input_button
+    member_ids:
+      name: Member IDs
+      selector:
+        text:
+          multiple: true
+    gadget_ids:
+      name: Gadget IDs
+      selector:
+        text:
+          multiple: true
+    actions:
+      name: Actions
+      selector:
+        text:
+          multiple: true
+      default:
+        - open
+variables:
+  member_ids: !input member_ids
+  gadget_ids: !input gadget_ids
+  actions: !input actions
+
+triggers:
+  - trigger: event
+    event_type: akiles_event
+
+conditions:
+  - condition: template
+    value_template: "{{ trigger.event.data.member_id in member_ids }}"
+  - condition: template
+    value_template: "{{ trigger.event.data.gadget_id in gadget_ids }}"
+  - condition: template
+    value_template: "{{ trigger.event.data.action in actions }}"
+
+actions:
+  action: input_button.press
+  target:
+    entity_id: !input button
+
+mode: queued
+max: 20
