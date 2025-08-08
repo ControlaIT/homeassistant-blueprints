@@ -68,7 +68,12 @@ blueprint:
 trigger_variables:
   input_state_machine_entity: !input state_machine_entity
   input_occupancy_sensor_entity: !input occupancy_sensor_entity
+variables:
+  input_checkout_today_entity: !input checkout_today_entity
 triggers:
+  - trigger: time
+    at: "00:10:00"
+    id: reset
   - trigger: state
     entity_id: !input button_action_entity
     to: single
@@ -171,6 +176,25 @@ actions:
               entity_id: !input helper_last_movement_time_entity
             data:
               time: 00:00:00
+      - conditions:
+          - condition: trigger
+            id:
+              - reset
+          - condition: template
+            value_template: "{{ is_state(input_checkout_today_entity,'on') }}"
+        sequence:
+          - action: input_select.select_option
+            metadata: {}
+            data:
+              option: not_checked_out
+            target:
+              entity_id: !input state_machine_entity
+          - action: input_datetime.set_datetime
+            target:
+              entity_id: !input helper_last_movement_time_entity
+            data:
+              time: 00:00:00
+
 mode: queued
 max: 100
 trace:
