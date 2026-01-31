@@ -1,0 +1,68 @@
+alias: "[LOCATION] DynDNS Add-on Monitor"
+description: Monitorea Cloudflare DynDNS e intenta reiniciar cada 5 minutos
+mode: restart
+triggers:
+  - trigger: state
+    entity_id: binary_sensor.cloudflare_dyndns_running
+    to: "off"
+    for:
+      seconds: 10
+    id: initial_failure
+  - trigger: state
+    entity_id: binary_sensor.cloudflare_dyndns_running
+    to: unavailable
+    for:
+      seconds: 10
+    id: initial_failure
+  - trigger: state
+    entity_id: binary_sensor.cloudflare_dyndns_running
+    to: unknown
+    for:
+      seconds: 10
+    id: initial_failure
+  - trigger: state
+    entity_id:
+      - binary_sensor.cloudflare_dyndns_running
+    to: "on"
+    for:
+      hours: 0
+      minutes: 0
+      seconds: 30
+    id: recovered
+    from: "off"
+  - trigger: time_pattern
+    minutes: /5
+    id: periodic_check
+conditions: []
+actions:
+  - choose:
+      - conditions:
+          - condition: trigger
+            id: initial_failure
+        sequence:
+          - action: notify.whatsapp
+            data:
+              message: ⚠️ [BARCELONA1] DynDNS caído - intentando reiniciar cada 5 minutos
+          - action: hassio.addon_start
+            data:
+              addon: cloudflare_dyndns
+      - conditions:
+          - condition: trigger
+            id: recovered
+        sequence:
+          - action: notify.whatsapp
+            data:
+              message: ✅ [BARCELONA1] DynDNS recuperado - Funcionando correctamente
+      - conditions:
+          - condition: trigger
+            id: periodic_check
+          - condition: state
+            entity_id: binary_sensor.cloudflare_dyndns_running
+            state:
+              - "off"
+              - unavailable
+              - unknown
+        sequence:
+          - action: hassio.addon_start
+            data:
+              addon:cloudflare_dyndns
